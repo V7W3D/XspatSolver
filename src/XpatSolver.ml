@@ -8,7 +8,16 @@ type mode =
   | Search of string (* filename where to write the solution *)
 
 type config = { mutable game : game; mutable seed: int; mutable mode: mode }
+
 let config = { game = Freecell; seed = 1; mode = Search "" }
+
+type state = {
+  mutable columns : Card.card list FArray.t;
+  mutable deposit : int FArray.t; 
+  mutable registers : Card.card option FArray.t;
+}
+
+let state = { columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None }
 
 let getgame = function
   | "FreeCell"|"fc" -> Freecell
@@ -30,6 +39,18 @@ let set_game_seed name =
   with _ -> failwith ("Error: <game>.<number> expected, with <game> in "^
                       "FreeCell Seahaven MidnightOil BakersDozen")
 
+let set_state = function
+  | Seahaven -> state.columns <- FArray.make 10 []
+  | Midnight -> state.columns <- FArray.make 18 []
+  | Baker -> state.columns <- FArray.make 13 []
+  | _ -> ()
+
+let init_columns permut state = 
+  match state.game with
+  | Seahaven -> 
+  | Midnight ->
+  | Baker ->
+  | FreeCell ->
 (* TODO : La fonction suivante est à adapter et continuer *)
 
 let treat_game conf =
@@ -40,7 +61,8 @@ let treat_game conf =
   List.iter (fun n -> Printf.printf "%s " (Card.to_string (Card.of_num n)))
     permut;
   print_newline ();
-  print_string "C'est tout pour l'instant. TODO: continuer...\n";
+  (*print_string "C'est tout pour l'instant. TODO: continuer...\n";*)
+  set_state conf.game;
   exit 0
 
 let main () =
