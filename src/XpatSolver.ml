@@ -1,6 +1,8 @@
 
 open XpatLib
 
+exception Move_error;;
+
 type game = Freecell | Seahaven | Midnight | Baker
 
 type mode =
@@ -9,7 +11,7 @@ type mode =
 
 type config = { mutable game : game; mutable seed: int; mutable mode: mode }
 
-let config = { game = Freecell; seed = 1; mode = Search "" }
+let config = { game = Baker; seed = 1; mode = Search "" }
 
 type state = {
   mutable columns : Card.card list FArray.t;
@@ -18,6 +20,8 @@ type state = {
 }
 
 let state = { columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None }
+
+type destination = T | V | Id of int 
 
 let getgame = function
   | "FreeCell"|"fc" -> Freecell
@@ -133,6 +137,73 @@ let normalize () =
       normalize_aux (index + 1)
     end
   in normalize_aux (0)
+
+let get_src_ind s = 
+  let rec get_src_ind_aux s index = match FArray.get (state.columns) (index) with
+    | [] -> get_src_ind_aux (s) (index + 1) 
+    | c -> match List.hd c with
+      | x -> if (Card.to_num x) = s then index else get_src_ind_aux (s) (index + 1) 
+  in get_src_ind_aux s (0)
+
+let get_dst_ind d =
+  let rec get_dst_ind_aux d index = match FArray.get (state.columns) (index) with
+  | [] -> get_dst_ind_aux (d) (index + 1)
+  | c -> match List.hd c with
+    | x -> if (Card.to_num x) = d then index else get_dst_ind_aux (d) (index + 1)
+  in get_dst_ind_aux d (0)
+
+let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> if (Card.num_of_suit x) - (Card.num_of_suit y) > 1 then true else false
+
+let inferior_rank c1 c2 = match c1 with (x, _) -> match c2 with (y, _) -> if x < y then true else false
+
+let first_empty_register () =
+  let rec first_empty_register_aux index = match FArray.get (state.registers) (index) with
+    | Some x -> first_empty_register_aux (index + 1)
+    | None -> index
+  in first_empty_register_aux (0)
+
+let first_empty_column () = 
+  let rec first_empty_column_aux index = match FArray.get (state.columns) (index) with
+    | [] -> index
+    |  l -> first_empty_column_aux (index + 1)
+  in first_empty_column_aux (0)
+
+let move_fc s d = match d with
+  | Id x -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match get_dst_ind x with
+      | exception Not_found -> raise Move_error
+      | j -> (match FArray.get (state.columns) (i) with
+        | c1 :: l1 -> (match FArray.get (state.columns) (j) with
+          | c2 :: l2 -> 
+            if (inferior_rank c1 c2) && (altern_color c1 c2) then
+            begin
+              state.columns <- FArray.set (state.columns) (i) (l1);
+              state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+            end
+            else raise Move_error
+          | _ -> ())
+        |_ -> ()))
+  | T -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match FArray.get (state.columns) (i) with
+      | c :: l1 -> (match first_empty_register () with
+        | exception Not_found -> raise Move_error
+        | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
+      | _ -> ())
+  | V -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match FArray.get (state.columns) (i) with
+      | c :: l1 -> (match first_empty_column () with
+        | exception Not_found -> raise Move_error
+        | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
+      | _ -> ())
+
+let move_st = ()
+
+let move_mo = ()
+
+let move_bk = ()
 
 (* TODO : La fonction suivante est à adapter et continuer *)
 
