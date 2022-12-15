@@ -112,6 +112,28 @@ let split_permut permut = match config.game with
   | Seahaven -> split_permut_st permut
   | Midnight -> split_permut_mo permut
   | Baker -> split_permut_bk permut
+
+let rec put_in_deposit column index = match column with 
+  | [] -> ()
+  | x::l -> match x with
+    | (rank, suit) -> begin
+      if rank = (FArray.get (state.deposit) (Card.num_of_suit suit)) + 1 then
+        begin
+          state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank + 1);
+          put_in_deposit (l) (index);
+          state.columns <- FArray.set (state.columns) (index) (l)
+        end
+    end
+
+let normalize () = 
+  let rec normalize_aux index = match FArray.get (state.columns) (index) with
+    | exception Not_found -> ()
+    | c -> begin
+      put_in_deposit (c) (index);
+      normalize_aux (index + 1)
+    end
+  in normalize_aux (0)
+
 (* TODO : La fonction suivante est à adapter et continuer *)
 
 let treat_game conf =
@@ -125,8 +147,8 @@ let treat_game conf =
   (*print_string "C'est tout pour l'instant. TODO: continuer...\n";*)
   set_state conf.game;
   print_newline ();
-  let res = split_permut permut in affiche_colonnes res;
-  init_columns res;
+  let res = split_permut permut in init_columns res;
+  normalize ();
   exit 0
 
 let main () =
