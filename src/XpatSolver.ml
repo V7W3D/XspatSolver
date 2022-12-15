@@ -45,12 +45,73 @@ let set_state = function
   | Baker -> state.columns <- FArray.make 13 []
   | _ -> ()
 
-let init_columns permut state = 
-  match state.game with
-  | Seahaven -> 
-  | Midnight ->
-  | Baker ->
-  | FreeCell ->
+let split_permut_fc permut = 
+  let rec split_permut_fc_aux permut accll accl cpt altern = 
+    match permut with 
+    | [] -> accl::accll
+    | x::l -> 
+      if altern then 
+        if cpt < 7 then split_permut_fc_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1) (altern) 
+        else split_permut_fc_aux (l) (accl::accll) ((Card.of_num x)::[]) (1) (not altern)
+      else
+        if cpt < 6 then split_permut_fc_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1) (altern)
+        else split_permut_fc_aux (l) (accl::accll) ((Card.of_num x)::[]) (1) (not altern)
+  in split_permut_fc_aux (permut) ([]) ([]) (0) (true)
+
+let split_permut_st permut = 
+  let rec split_permut_st_aux permut accll accl cpt = 
+    match permut with
+    | [] -> accl::accll
+    | [c1;c2] -> begin
+      state.registers <- FArray.set (state.registers) (0) (Some (Card.of_num c1));
+      state.registers <- FArray.set (state.registers) (1) (Some (Card.of_num c1));
+      split_permut_st_aux [] accll accl cpt
+    end
+    | x::l -> if cpt < 5 then split_permut_st_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1)
+    else split_permut_st_aux (x::l) (accl::accll) ([]) (0)
+  in split_permut_st_aux (permut) ([]) ([]) (0)
+
+let split_permut_mo permut = 
+  let rec split_permut_mo_aux permut accll accl cpt = 
+    match permut with
+    | [] -> accl::accll
+    | x::l -> if cpt < 3 then split_permut_mo_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1)
+    else split_permut_mo_aux (l) (accl::accll) ((Card.of_num x)::[]) (1)
+  in split_permut_mo_aux (permut) ([]) ([]) (0)
+
+let split_permut_bk permut = 
+  let rec split_permut_bk_aux permut accll accl cpt = 
+    match permut with
+    | [] -> accl::accll
+    | x::l -> match Card.of_num x with
+      | (13, _) -> if cpt < 4 then split_permut_bk_aux (l) (accll) (accl@((Card.of_num x)::[])) (cpt+1) else split_permut_bk_aux (l) (accl::accll) ((Card.of_num x)::[]) (1)
+      | (_, _) -> if cpt < 4 then split_permut_bk_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1) else split_permut_bk_aux (l) (accl::accll) ((Card.of_num x)::[]) (1)
+  in split_permut_bk_aux (permut) ([]) ([]) (0)
+
+let init_columns splited_permut = 
+  let rec init_columns_aux splited_permut cpt = match splited_permut with
+    | [] -> ()
+    | x :: l -> begin
+      state.columns <- FArray.set (state.columns) (cpt) (x);
+      init_columns_aux (l) (cpt+1)
+      end
+  in init_columns_aux (splited_permut) (0)
+
+let rec affiche_colonnes ll = 
+  match ll with
+   | [] -> ()
+   | x::l -> 
+    begin 
+      List.iter (fun n -> Printf.printf "%s " (Card.to_string (n))) x; 
+      print_newline ();
+      affiche_colonnes l
+    end
+
+let split_permut permut = match config.game with
+  | Freecell -> split_permut_fc permut
+  | Seahaven -> split_permut_st permut
+  | Midnight -> split_permut_mo permut
+  | Baker -> split_permut_bk permut
 (* TODO : La fonction suivante est à adapter et continuer *)
 
 let treat_game conf =
@@ -63,6 +124,9 @@ let treat_game conf =
   print_newline ();
   (*print_string "C'est tout pour l'instant. TODO: continuer...\n";*)
   set_state conf.game;
+  print_newline ();
+  let res = split_permut permut in affiche_colonnes res;
+  init_columns res;
   exit 0
 
 let main () =
