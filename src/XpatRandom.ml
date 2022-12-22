@@ -126,4 +126,9 @@ let gen_reduced_permutation reduced_liste =
     in gen_reduced_permutation_aux reduced_liste (gen_list 0 52);;
 
 let shuffle n =
-  shuffle_test n (* TODO: changer en une implementation complete *)
+   let paires = gen_permutation n in
+   let f1_init, f2_init = sort_and_reduce paires in
+   let _, f1_165, f2_165 = tirage f1_init f2_init 165 in
+   let tirages_52, _, _ = tirage f1_165 f2_165 52 in 
+   let reduced_52 = reduce_liste tirages_52 52 in
+   gen_reduced_permutation reduced_52;;
