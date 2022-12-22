@@ -2,6 +2,7 @@
 open XpatLib
 
 exception Move_error;;
+exception Invalid_format;;
 
 type game = Freecell | Seahaven | Midnight | Baker
 
@@ -271,8 +272,24 @@ let move_bk s d = match d with
         |_ -> ()))
   | T -> ()
   | V -> ()
-      
 
+let move s d = match config.game with
+| Freecell -> move_fc s d
+| Seahaven -> move_st s d
+| Midnight -> move_mo s d
+| Baker -> move_bk s d
+
+let validate_file f = 
+  let rec validate_file_aux f n = (match input_line f with
+    | line -> let l = Str.split (Str.regexp " ") (line) in (match l with
+      | [i; j] -> (match j with
+        | "T" -> (try move (int_of_string i) (T); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1) 
+        | "V" -> (try move (int_of_string i) (V); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1)
+        | _ -> (try move (int_of_string i) (Id (int_of_string j)); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1))
+      | _ -> raise Invalid_format)
+    | exception End_of_file -> Printf.printf "SUCCESS\n"; close_in f)
+  in validate_file_aux f 0
+    
 (* TODO : La fonction suivante est à adapter et continuer *)
 
 let treat_game conf =
@@ -285,9 +302,11 @@ let treat_game conf =
   print_newline ();
   (*print_string "C'est tout pour l'instant. TODO: continuer...\n";*)
   set_state conf.game;
-  print_newline ();
   let res = split_permut permut in init_columns res;
   normalize ();
+  match config.mode with
+    | Check filename -> validate_file (open_in filename)
+    | _ -> ();
   exit 0
 
 let main () =
