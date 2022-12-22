@@ -152,7 +152,7 @@ let get_dst_ind d =
     | x -> if (Card.to_num x) = d then index else get_dst_ind_aux (d) (index + 1)
   in get_dst_ind_aux d (0)
 
-let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> if (Card.num_of_suit x) - (Card.num_of_suit y) > 1 then true else false
+let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> (Card.num_of_suit x) - (Card.num_of_suit y) > 1 
 
 let inferior_rank c1 c2 = match c1 with (x, _) -> match c2 with (y, _) -> if x < y then true else false
 
@@ -199,11 +199,79 @@ let move_fc s d = match d with
         | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
       | _ -> ())
 
-let move_st = ()
+let same_suit c1 c2 =  match c1 with (_, x) -> match c2 with (_, y) -> (Card.num_of_suit x) = (Card.num_of_suit y)
 
-let move_mo = ()
+let move_st s d = match d with
+  | Id x -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match get_dst_ind x with
+      | exception Not_found -> raise Move_error
+      | j -> (match FArray.get (state.columns) (i) with
+        | c1 :: l1 -> (match FArray.get (state.columns) (j) with
+          | c2 :: l2 -> 
+            if (inferior_rank c1 c2) && (same_suit c1 c2) then
+            begin
+              state.columns <- FArray.set (state.columns) (i) (l1);
+              state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+            end
+            else raise Move_error
+          | _ -> ())
+        |_ -> ()))
+  | T -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match FArray.get (state.columns) (i) with
+      | c :: l1 -> (match first_empty_register () with
+        | exception Not_found -> raise Move_error
+        | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
+      | _ -> ())
+  | V -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> (match FArray.get (state.columns) (i) with
+      | c :: l1 -> (match c with (x, _) -> if x = 13 then 
+        (match first_empty_column () with
+          | exception Not_found -> raise Move_error
+          | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
+        else raise Move_error)
+      | _ -> ()))
 
-let move_bk = ()
+let move_mo s d = match d with
+  | Id x -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match get_dst_ind x with
+      | exception Not_found -> raise Move_error
+      | j -> (match FArray.get (state.columns) (i) with
+        | c1 :: l1 -> (match FArray.get (state.columns) (j) with
+          | c2 :: l2 -> 
+            if (inferior_rank c1 c2) && (same_suit c1 c2) then
+            begin
+              state.columns <- FArray.set (state.columns) (i) (l1);
+              state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+            end
+            else raise Move_error
+          | _ -> ())
+        |_ -> ()))
+  | T -> ()
+  | V -> ()
+
+let move_bk s d = match d with
+  | Id x -> (match get_src_ind s with
+    | exception Not_found -> raise Move_error
+    | i -> match get_dst_ind x with
+      | exception Not_found -> raise Move_error
+      | j -> (match FArray.get (state.columns) (i) with
+        | c1 :: l1 -> (match FArray.get (state.columns) (j) with
+          | c2 :: l2 -> 
+            if (inferior_rank c1 c2) then
+            begin
+              state.columns <- FArray.set (state.columns) (i) (l1);
+              state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+            end
+            else raise Move_error
+          | _ -> ())
+        |_ -> ()))
+  | T -> ()
+  | V -> ()
+      
 
 (* TODO : La fonction suivante est à adapter et continuer *)
 
