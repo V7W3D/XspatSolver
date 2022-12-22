@@ -15,62 +15,6 @@ let reduce n limit =
   Int.(of_float (to_float n /. to_float randmax *. to_float limit))
 
 
-(** DESCRIPTION DE L'ALGORITHME DE GENERATION DES PERMUTATIONS
-
-a) Créer tout d'abord les 55 premières paires suivantes:
-  * premières composantes : 0 pour la premiere paire,
-    puis ajouter 21 modulo 55 à chaque fois
-  * secondes composantes : graine, puis 1, puis les "différences"
-    successives entre les deux dernières secondes composantes.
-    Par "différence" entre a et b on entend
-      - Ou bien (a-b) si b<=a
-      - Ou bien (a-b+randmax) si a<b
-
-b) Trier ces 55 paires par ordre croissant selon leurs premières composantes,
-   puis séparer entre les 24 premières paires et les 31 suivantes.
-   Pour les 31 paires, leurs secondes composantes sont à mettre dans
-   une FIFO f1_init, dans cet ordre (voir `Fifo.of_list` documenté dans
-   `Fifo.mli`). De même pour les 24 paires, leurs secondes composantes sont
-   à mettre dans une FIFO f2_init, dans cet ordre.
-
-c) Un *tirage* à partir de deux FIFO (f1,f2) consiste à prendre
-   leurs premières valeurs respectives n1 et n2 (cf `Fifo.pop`),
-   puis calculer la "différence" de n1 et n2 (comme auparavant),
-   nommons-la d. Ce d est alors le résultat du tirage, associé
-   à deux nouvelles FIFO constituées des restes des anciennes FIFO
-   auxquelles on a rajouté respectivement n2 et d (cf `Fifo.push`).
-
-d) On commence alors par faire 165 tirages successifs en partant
-   de (f1_init,f2_init). Ces tirages servent juste à mélanger encore
-   les FIFO qui nous servent d'état de notre générateur pseudo-aléatoire,
-   les entiers issus de ces 165 premiers tirages ne sont pas considérés.
-
-e) La fonction de tirage vue précédemment produit un entier dans
-   [0..randmax[. Pour en déduire un entier dans [0..limit[ (ou limit est
-   un entier positif quelconque), on utilisera alors la fonction `reduce`
-   fournie plus haut.
-   Les tirages suivants nous servent à créer la permutation voulue des
-   52 cartes. On commence avec une liste des nombres successifs entre 0 et 51.
-   Un tirage dans [0..52[ nous donne alors la position du dernier nombre
-   à mettre dans notre permutation. On enlève alors le nombre à cette position
-   dans la liste. Puis un tirage dans [0..51[ nous donne la position
-   (dans la liste restante) de l'avant-dernier nombre de notre permutation.
-   On continue ainsi à tirer des positions valides dans la liste résiduelle,
-   puis à retirer les nombres à ces positions tirées pour les ajouter devant
-   la permutation, jusqu'à épuisement de la liste. Le dernier nombre retiré
-   de la liste donne donc la tête de la permutation.
-
-   NB: /!\ la version initiale de ce commentaire donnait par erreur
-   la permutation dans l'ordre inverse).
-
-Un exemple complet de génération d'une permutation (pour la graine 1)
-est maintenant donné dans le fichier XpatRandomExemple.ml, étape par étape.
-
-*)
-
-(* For now, we provide a shuffle function that can handle a few examples.
-   This can be kept later for testing your implementation. *)
-
 let shuffle_test = function
   | 1 ->
      [13;32;33;35;30;46;7;29;9;48;38;36;51;41;26;20;23;43;27;
@@ -118,6 +62,68 @@ let shuffle_test = function
       45;5;3;41;15;12;31;17;28;8;29;30;37]
   | _ -> failwith "shuffle : unsupported number (TODO)"
 
+(*sustraction avec randmax*)
+let sub_max a b = if (b <= a) then a - b else a - b + randmax
+
+
+(*etape a*)
+let gen_permutation seed =
+    let add_mod = 21 mod 55
+    in 
+        let rec gen_aux n befor seed_1 seed_2= 
+            if (n = 55) then []
+            else 
+                if (n = 0) then (0, seed_1)::(gen_aux (n+1) 0 (seed_1+1) seed_1)
+                else 
+                    let acc = (befor + add_mod) mod 55 in
+                    let new_seed = sub_max seed_1 seed_2 in
+                    (acc, new_seed) :: (gen_aux (n+1) (acc) (seed_2) (new_seed))
+    in gen_aux 0 0 seed 0;; 
+
+(*generate a sublist from list from pos begin_index to end_index b*)
+let rec sub_list list_pair begin_index end_index = 
+    if (begin_index > end_index) then []
+    else (List.nth list_pair begin_index) :: (sub_list list_pair (begin_index+1) end_index);; 
+
+(*reduce and sort a pair of list*)
+let sort_and_reduce list_a = 
+    let sorted_list = 
+        let sorted_list_pair = List.sort 
+            (fun a b -> let (a1,_) = a in let (b1,_)=b in if (a1<b1) then -1 else if (a1=b1) then 0 else 1)
+            list_a
+        in List.map (fun x -> let _,b = x in b) sorted_list_pair
+    in let fifo1_init = Fifo.of_list (sub_list sorted_list 24 54)
+    in let fifo2_init = Fifo.of_list (sub_list sorted_list 0 23)
+    in fifo1_init, fifo2_init;; 
+
+(*tirage de 0 a n des file file_1 et file_2 suivant l'algorithme*)
+let rec tirage file_1 file_2 n =
+    if (n <= 0) then [], file_1, file_2
+    else let n1, update_file_1 = Fifo.pop file_1 in 
+        let n2, update_file_2 = Fifo.pop file_2 in
+        let d = sub_max n1 n2 
+        in let l, f1, f2 = (tirage (Fifo.push n2 update_file_1) (Fifo.push d update_file_2) (n-1))
+        in (d :: l), f1, f2 ;;
+
+(*application de la reduction a la liste*)
+let reduce_liste liste limit =
+    let rec reduce_liste_aux liste limit n size= 
+        if (n >= size) then []
+        else let res = reduce (List.nth liste n) limit in
+        res :: (reduce_liste_aux liste (limit-1) (n+1) size) in
+    reduce_liste_aux liste limit 0 (List.length liste);;
+
+(*generation de la permutation*)
+let gen_reduced_permutation reduced_liste = 
+    let rec gen_reduced_permutation_aux liste sublist = 
+        match liste with
+            | [] -> []
+            | x::y -> let res = List.nth sublist x in
+                (gen_reduced_permutation_aux y (List.filter (fun x->x!=res) sublist))@[res]
+    in let rec gen_list a b = 
+        if (a >= b) then []
+        else a :: gen_list (a+1) b
+    in gen_reduced_permutation_aux reduced_liste (gen_list 0 52);;
 
 let shuffle n =
   shuffle_test n (* TODO: changer en une implementation complete *)
