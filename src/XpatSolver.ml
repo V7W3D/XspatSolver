@@ -279,16 +279,25 @@ let move s d = match config.game with
 | Midnight -> move_mo s d
 | Baker -> move_bk s d
 
+let validate_deposit () = 
+  let rec validate_deposit_aux index = match FArray.get (state.deposit) (index) with
+  | exception Not_found -> true
+  | c -> if c = 13 then validate_deposit_aux (index + 1) else false
+  in validate_deposit_aux (0)
+
+
 let validate_file f = 
   let rec validate_file_aux f n = (match input_line f with
-    | line -> let l = Str.split (Str.regexp " ") (line) in (match l with
+    | line -> let l = String.split_on_char (' ') (line) in (match l with
       | [i; j] -> (match j with
         | "T" -> (try move (int_of_string i) (T); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1) 
         | "V" -> (try move (int_of_string i) (V); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1)
         | _ -> (try move (int_of_string i) (Id (int_of_string j)); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1))
       | _ -> raise Invalid_format)
-    | exception End_of_file -> Printf.printf "SUCCESS\n"; close_in f)
-  in validate_file_aux f 0
+    | exception End_of_file -> (match validate_deposit () with
+      | false -> (Printf.printf "ECHEC %d\n" n; exit 1)
+      | true -> Printf.printf "SUCESS\n"))
+  in validate_file_aux f 1
     
 (* TODO : La fonction suivante est à adapter et continuer *)
 
