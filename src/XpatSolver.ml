@@ -122,9 +122,9 @@ let rec put_in_deposit column index = match column with
   | [] -> ()
   | x::l -> match x with
     | (rank, suit) -> begin
-      if rank = (FArray.get (state.deposit) (Card.num_of_suit suit)) + 1 then
+      if rank = ((FArray.get (state.deposit) (Card.num_of_suit suit)) + 1) then
         begin
-          state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank + 1);
+          state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank);
           put_in_deposit (l) (index);
           state.columns <- FArray.set (state.columns) (index) (l)
         end
@@ -133,29 +133,26 @@ let rec put_in_deposit column index = match column with
 let normalize () = 
   let rec normalize_aux index = match FArray.get (state.columns) (index) with
     | exception Not_found -> ()
-    | c -> begin
-      put_in_deposit (c) (index);
-      normalize_aux (index + 1)
-    end
+    | c -> (put_in_deposit (c) (index); normalize_aux (index + 1))
   in normalize_aux (0)
 
-let get_src_ind s = 
-  let rec get_src_ind_aux s index = match FArray.get (state.columns) (index) with
-    | [] -> get_src_ind_aux (s) (index + 1) 
+let get_src_col_ind s = 
+  let rec get_src_col_ind_aux s index = match FArray.get (state.columns) (index) with
+    | [] -> get_src_col_ind_aux (s) (index + 1) 
     | c -> match List.hd c with
-      | x -> if (Card.to_num x) = s then index else get_src_ind_aux (s) (index + 1) 
-  in get_src_ind_aux s (0)
+      | x -> if (Card.to_num x) = s then index else get_src_col_ind_aux (s) (index + 1) 
+  in get_src_col_ind_aux s (0)
 
 let get_dst_ind d =
   let rec get_dst_ind_aux d index = match FArray.get (state.columns) (index) with
-  | [] -> get_dst_ind_aux (d) (index + 1)
-  | c -> match List.hd c with
-    | x -> if (Card.to_num x) = d then index else get_dst_ind_aux (d) (index + 1)
+    | [] -> get_dst_ind_aux (d) (index + 1)
+    | c -> match List.hd c with
+      | x -> if (Card.to_num x) = d then index else get_dst_ind_aux (d) (index + 1)
   in get_dst_ind_aux d (0)
 
-let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> (Card.num_of_suit x) - (Card.num_of_suit y) > 1 
+let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> ((Card.num_of_suit x) - (Card.num_of_suit y) > 1) || ((Card.num_of_suit y) - (Card.num_of_suit x) > 1)
 
-let inferior_rank c1 c2 = match c1 with (x, _) -> match c2 with (y, _) -> if x < y then true else false
+let inferior_rank c1 c2 = match c1 with (x, _) -> match c2 with (y, _) -> y = (x + 1)
 
 let first_empty_register () =
   let rec first_empty_register_aux index = match FArray.get (state.registers) (index) with
@@ -170,7 +167,7 @@ let first_empty_column () =
   in first_empty_column_aux (0)
 
 let move_fc s d = match d with
-  | Id x -> (match get_src_ind s with
+  | Id x -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
@@ -185,14 +182,14 @@ let move_fc s d = match d with
             else raise Move_error
           | _ -> ())
         |_ -> ()))
-  | T -> (match get_src_ind s with
+  | T -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
       | c :: l1 -> (match first_empty_register () with
         | exception Not_found -> raise Move_error
         | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
       | _ -> ())
-  | V -> (match get_src_ind s with
+  | V -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
       | c :: l1 -> (match first_empty_column () with
@@ -203,7 +200,7 @@ let move_fc s d = match d with
 let same_suit c1 c2 =  match c1 with (_, x) -> match c2 with (_, y) -> (Card.num_of_suit x) = (Card.num_of_suit y)
 
 let move_st s d = match d with
-  | Id x -> (match get_src_ind s with
+  | Id x -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
@@ -218,14 +215,14 @@ let move_st s d = match d with
             else raise Move_error
           | _ -> ())
         |_ -> ()))
-  | T -> (match get_src_ind s with
+  | T -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
       | c :: l1 -> (match first_empty_register () with
         | exception Not_found -> raise Move_error
         | x -> state.registers <- FArray.set (state.registers) (x) (Some c))
       | _ -> ())
-  | V -> (match get_src_ind s with
+  | V -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> (match FArray.get (state.columns) (i) with
       | c :: l1 -> (match c with (x, _) -> if x = 13 then 
@@ -236,7 +233,7 @@ let move_st s d = match d with
       | _ -> ()))
 
 let move_mo s d = match d with
-  | Id x -> (match get_src_ind s with
+  | Id x -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
@@ -255,7 +252,7 @@ let move_mo s d = match d with
   | V -> ()
 
 let move_bk s d = match d with
-  | Id x -> (match get_src_ind s with
+  | Id x -> (match get_src_col_ind s with
     | exception Not_found -> raise Move_error
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
