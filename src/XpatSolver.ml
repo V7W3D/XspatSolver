@@ -119,14 +119,14 @@ let split_permut permut = match config.game with
   | Baker -> split_permut_bk permut
 
 let rec put_in_deposit column index = match column with 
-  | [] -> ()
+  | [] -> state.columns <- FArray.set (state.columns) (index) ([]);
   | x::l -> match x with
     | (rank, suit) -> begin
       if rank = ((FArray.get (state.deposit) (Card.num_of_suit suit)) + 1) then
         begin
           state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank);
-          put_in_deposit (l) (index);
-          state.columns <- FArray.set (state.columns) (index) (l)
+          state.columns <- FArray.set (state.columns) (index) (l);
+          put_in_deposit (l) (index)
         end
     end
 
@@ -142,6 +142,12 @@ let get_src_col_ind s =
     | c -> match List.hd c with
       | x -> if (Card.to_num x) = s then index else get_src_col_ind_aux (s) (index + 1) 
   in get_src_col_ind_aux s (0)
+
+let get_src_reg_ind s = 
+  let rec get_src_reg_ind_aux s index = match FArray.get (state.registers) (index) with
+  | None -> get_src_reg_ind_aux (s) (index + 1) 
+  | Some c -> if (Card.to_num c) = s then index else get_src_reg_ind_aux (s) (index + 1) 
+in get_src_reg_ind_aux s (0)
 
 let get_dst_ind d =
   let rec get_dst_ind_aux d index = match FArray.get (state.columns) (index) with
@@ -168,7 +174,21 @@ let first_empty_column () =
 
 let move_fc s d = match d with
   | Id x -> (match get_src_col_ind s with
-    | exception Not_found -> raise Move_error
+    | exception Not_found -> (match get_src_reg_ind s with
+      | exception Not_found -> raise Move_error
+      | i -> match get_dst_ind x with
+        | exception Not_found -> raise Move_error
+        | j -> (match FArray.get (state.registers) (i) with
+          | Some c1 -> (match FArray.get (state.columns) (j) with
+            | c2 :: l2 -> 
+              if (inferior_rank c1 c2) && (altern_color c1 c2) then
+              begin
+                state.registers <- FArray.set (state.registers) (i) (None);
+                state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+              end
+              else raise Move_error
+            | _ -> ())
+          |_ -> ()))
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
@@ -201,7 +221,21 @@ let same_suit c1 c2 =  match c1 with (_, x) -> match c2 with (_, y) -> (Card.num
 
 let move_st s d = match d with
   | Id x -> (match get_src_col_ind s with
-    | exception Not_found -> raise Move_error
+    | exception Not_found -> (match get_src_reg_ind s with
+      | exception Not_found -> raise Move_error
+      | i -> match get_dst_ind x with
+        | exception Not_found -> raise Move_error
+        | j -> (match FArray.get (state.registers) (i) with
+          | Some c1 -> (match FArray.get (state.columns) (j) with
+            | c2 :: l2 -> 
+              if (inferior_rank c1 c2) && (same_suit c1 c2) then
+              begin
+                state.registers <- FArray.set (state.registers) (i) (None);
+                state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+              end
+              else raise Move_error
+            | _ -> ())
+          |_ -> ()))
     | i -> match get_dst_ind x with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
@@ -262,7 +296,7 @@ let move_bk s d = match d with
             if (inferior_rank c1 c2) then
             begin
               state.columns <- FArray.set (state.columns) (i) (l1);
-              state.columns <- FArray.set (state.columns) (j)  (c1::(c2::l2))
+              state.columns <- FArray.set (state.columns) (j) (c1::(c2::l2))
             end
             else raise Move_error
           | _ -> ())
@@ -294,7 +328,7 @@ let validate_file f =
     | exception End_of_file -> (match validate_deposit () with
       | false -> (Printf.printf "ECHEC %d\n" n; exit 1)
       | true -> Printf.printf "SUCESS\n"))
-  in validate_file_aux f 1
+  in validate_file_aux (f) (1)
     
 (* TODO : La fonction suivante est à adapter et continuer *)
 
