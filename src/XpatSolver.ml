@@ -86,7 +86,7 @@ let split_permut_st permut =
     | [] -> accl::accll
     | [c1;c2] -> begin
       state.registers <- FArray.set (state.registers) (0) (Some (Card.of_num c1));
-      state.registers <- FArray.set (state.registers) (1) (Some (Card.of_num c1));
+      state.registers <- FArray.set (state.registers) (1) (Some (Card.of_num c2));
       split_permut_st_aux [] accll accl cpt
     end
     | x::l -> if cpt < 5 then split_permut_st_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1)
@@ -154,7 +154,7 @@ let rec normalize_col index check = match FArray.get (state.columns) (index) wit
   | exception Not_found -> check
   | c -> let check_updated = put_in_deposit_col (c) (index) (check) in normalize_col (index + 1) (check_updated)
 
-let rec normalize () = let check1 = normalize_col (0) (false) in let check2 = normalize_reg (0) (false) in if (check1 || check2) then (print_string "fvck"; normalize ())
+let rec normalize () = let check1 = normalize_col (0) (false) in let check2 = normalize_reg (0) (false) in if (check1 || check2) then normalize ()
 
 let get_src_col_ind s = 
   let rec get_src_col_ind_aux s index = match FArray.get (state.columns) (index) with
@@ -364,13 +364,13 @@ let validate_file f =
   let rec validate_file_aux f n = (match input_line f with
     | line -> let l = String.split_on_char (' ') (line) in (match l with
       | [i; j] -> (match j with
-        | "T" -> (try move (int_of_string i) (T); normalize (); validate_file_aux (f) (n+1) with Move_error ->print_deposit (0); print_newline (); print_registers (0); print_newline (); print_columns (0); print_newline (); Printf.printf "ECHEC %d\n" n; exit 1) 
-        | "V" -> (try move (int_of_string i) (V); normalize (); validate_file_aux (f) (n+1) with Move_error -> print_registers (0); print_newline (); print_columns (0); print_newline (); Printf.printf "ECHEC %d\n" n; exit 1)
-        | _ -> (try move (int_of_string i) (Id (int_of_string j)); normalize (); validate_file_aux (f) (n+1) with Move_error -> print_columns (0); print_newline (); Printf.printf "ECHEC %d\n" n; exit 1))
+        | "T" -> (try move (int_of_string i) (T); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1) 
+        | "V" -> (try move (int_of_string i) (V); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1)
+        | _ -> (try move (int_of_string i) (Id (int_of_string j)); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1))
       | _ -> raise Invalid_format)
     | exception End_of_file -> (match validate_deposit () with
-      | false -> (print_columns (0); print_newline (); Printf.printf "ECHEC %d\n" n)
-      | true -> Printf.printf "SUCESS\n"))
+      | false -> (Printf.printf "ECHEC %d\n" n; exit 1)
+      | true -> Printf.printf "SUCCES\n"))
   in validate_file_aux (f) (1)
 
 (* TODO : La fonction suivante est à adapter et continuer *)
@@ -388,10 +388,9 @@ let treat_game conf =
   set_state conf.game;
   let res = split_permut permut in init_columns res;
   normalize ();
-  print_columns (0); print_newline ();
-  match config.mode with
+  (match config.mode with
     | Check filename -> validate_file (open_in filename)
-    | _ -> ();
+    | _ -> ());
   exit 0
 
 let main () =
