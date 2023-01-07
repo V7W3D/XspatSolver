@@ -29,7 +29,65 @@ let init_set_states state_init = States.singleton state_init
 
 let get_max_state state_set = States.max_elt_opt state_set
 
-let valide_moves move state = ()
+let list_of_id state = 
+	let rec list_of_id_col col i =
+		match FArray.get col i with
+			| exception Not_found -> []
+			| l -> if List.length l > 0 then 
+					Card.to_num (List.nth l 0) 
+					:: list_of_id_col col (i+1)
+					else list_of_id_col col (i+1)
+
+	in let rec list_of_id_reg reg i = 
+		match FArray.get reg i with
+			| exception Not_found|None-> []
+			| Some c-> let id = Card.to_num c in id::list_of_id_reg reg (i+1)
+
+	in (list_of_id_col state.columns 0) @ (list_of_id_reg state.reg 0)
+
+let copy_state state = () 
+
+let move_id_to_id id move state = 
+	let rec move_id_to_id_aux s d move state =
+		if (d < 52) then 
+			let state' = copy_state state in
+				try 
+					let _ = move s (XpatSolver.Id d) state' in
+					States.add state' (move_id_to_id_aux s (d+1) move state)
+				with XpatSolver.Move_error -> 
+					move_id_to_id_aux s (d+1) move state
+		else States.empty
+	in move_id_to_id id 1 move state
+
+let move_id_to_col id move state = 
+	try  
+		let state' = copy_state state in
+		let _ = move id XpatSolver.V state' in
+		States.singleton state'
+	with
+		XpatSolver.Move_error -> States.empty
+
+let move_id_to_reg id move state = 
+	try 
+		let state' = copy_state state in
+		let _ = move id XpatSolver.T state' in
+		States.singleton state'
+	with
+		XpatSolver.Move_error -> States.empty
+	
+let valid_moves_from_id id move state = 
+	States.union 
+		(move_id_to_id id move state)
+		(States.union (move_id_to_col id move state) (move_id_to_reg id move state))
+
+let valide_moves move state = 
+	let rec valide_moves_aux move state l = match l with
+		| [] -> States.empty
+		| id::ids ->  States.union 
+						(valid_moves_from_id id move state)
+						(valide_moves_aux move state ids) 
+	in let s = valide_moves_aux move state (list_of_id state) in
+		if States.is_empty s then None else Some s 
 
 let is_winnig state = if (score state = max_score) then true else false
 
@@ -39,10 +97,10 @@ let rec search_aux move state_set saved_state =
 		| Some s -> match is_winnig s with
 			| true -> true
 			| false -> match valide_moves move s with 
-				| None -> search_aux saved_state States.empty
-				| Some new_state -> let updated_state = States.remove s state_set in
-						search_aux move new_state updated_state
+				| None -> search_aux move saved_state States.empty
+				| Some new_states -> let updated_state = States.remove s state_set in
+						search_aux move new_states updated_state
 
 let search move state_init = 
 	let state_set = init_set_states state_init in 
-		search_aux move state_set
+		search_aux move state_set States.empty
