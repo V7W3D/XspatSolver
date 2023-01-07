@@ -34,7 +34,7 @@ let list_of_id state =
 		match FArray.get col i with
 			| exception Not_found -> []
 			| l -> if List.length l > 0 then 
-					Card.to_num (List.nth l 0) 
+					Card.to_num (List.hd l) 
 					:: list_of_id_col col (i+1)
 					else list_of_id_col col (i+1)
 
@@ -45,7 +45,16 @@ let list_of_id state =
 
 	in (list_of_id_col state.columns 0) @ (list_of_id_reg state.reg 0)
 
-let copy_state state = () 
+let copy_state state = 
+	let state' = {
+		XpatSolver.columns = FArray.init (FArray.length state.columns) 
+								(fun i -> FArray.get state.columns i);
+		XpatSolver.deposit = FArray.init (FArray.length state.deposit)
+								(fun i -> FArray.get state.deposit i);
+		XpatSolver.registers = FArray.init (FArray.length state.registers)
+								(fun i -> FArray.get state.registers i);
+	}
+	in state' 
 
 let move_id_to_id id move state = 
 	let rec move_id_to_id_aux s d move state =
@@ -60,10 +69,15 @@ let move_id_to_id id move state =
 	in move_id_to_id id 1 move state
 
 let move_id_to_col id move state = 
-	try  
-		let state' = copy_state state in
-		let _ = move id XpatSolver.V state' in
-		States.singleton state'
+	try 
+		let index = XpatSolver.get_dst_ind id state in
+		match FArray.get state.columns index with
+			| exception Not_found -> States.empty
+			| l -> if (List.length l > 1) then
+						let state' = copy_state state in
+						let _ = move id XpatSolver.V state' in
+						States.singleton state'
+					else States.empty
 	with
 		XpatSolver.Move_error -> States.empty
 
