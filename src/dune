@@ -1,3 +1,4 @@
 (env (_ (flags :standard -w -27-26-32-33)))
 (executable (name XpatSolver) (modules XpatSolver) (libraries XpatLib) (modes byte exe))
-(library (name XpatLib) (modules Fifo FArray PArray Card XpatRandom XpatSolverSearch))
+(library (name XpatLib) (modules Fifo FArray PArray Card XpatRandom XpatSolverSearch 
+XpatSolverValidate))
