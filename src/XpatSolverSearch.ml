@@ -61,13 +61,42 @@ let list_of_id state =
 let copy_state state = 
 	let state' = {
 		columns = FArray.init (FArray.length state.columns) 
-								(fun i -> FArray.get state.columns i);
+								(fun i -> try FArray.get state.columns i with Not_found -> []);
 		deposit = FArray.init (FArray.length state.deposit)
-								(fun i -> FArray.get state.deposit i);
+								(fun i -> try FArray.get state.deposit i with Not_found -> 0);
 		registers = FArray.init (FArray.length state.registers)
-								(fun i -> FArray.get state.registers i);
+								(fun i -> try FArray.get state.registers i with Not_found -> None);
 	}
 	in state';;
+
+let compare_card c1 c2 =
+	let (rk1, suit1) = c1 in
+	let (rk2, suit2) = c2 in
+		if (rk1 = rk2 && suit1 < suit2) then true
+		else false 
+
+let contains_big_seq state =
+	let rec contains_big_seq_aux state n n' elm c =
+		if (n>=n') then true
+		else 
+			try
+				let e = (List.nth c n) in
+				(compare_card e elm)
+				&& (contains_big_seq_aux state (n+1) n' e c)
+			with Failure a -> false
+
+	in let n = FArray.length state.registers in
+	let rec check_all_columns state i =
+		try 
+			let c = FArray.get state.columns i
+			in try
+				let sommet = List.nth c 0 
+				in if (contains_big_seq_aux state 1 (n+2) sommet c) then true
+				else check_all_columns state (i+1)
+			with Failure a -> false
+		with Not_found -> false
+	in check_all_columns state 0;;
+
 
 let move_id_to_id id move state = 
 	let rec move_id_to_id_aux s d move state =
@@ -76,7 +105,9 @@ let move_id_to_id id move state =
 				try 
 					let _ = set_state_s state' in
 					let _ = move s (Id d) in
-					States.add state' (move_id_to_id_aux s (d+1) move state)
+					if (not (contains_big_seq state')) then
+						States.add state' (move_id_to_id_aux s (d+1) move state)
+					else move_id_to_id_aux s (d+1) move state
 				with Move_error -> 
 					move_id_to_id_aux s (d+1) move state
 		else States.empty
@@ -92,17 +123,23 @@ let move_id_to_col id move state =
 						let state' = copy_state state in
 						let _ = set_state_s state' in
 						let _ = move id V in
-						States.singleton state'
+						if (not (contains_big_seq state')) then
+							States.singleton state'
+						else States.empty
 					else States.empty
 	with
-		Move_error -> States.empty;;
+		Move_error|Not_found -> States.empty;;
+
 
 let move_id_to_reg id move state = 
 	try 
 		let state' = copy_state state in
 		let _ = set_state_s state' in
 		let _ = move id T in
-		States.singleton state'
+		if (not (contains_big_seq state')) then
+			States.singleton state'
+		else
+			States.empty
 	with
 		Move_error -> States.empty;;
 	
@@ -122,7 +159,7 @@ let valide_moves move state =
 
 let is_winnig state = if (score state = max_score) then true else false;;
 
-let rec search_aux move state_set acc =
+let rec search_aux move state_set acc = 
 	match get_max_state state_set with
 		| None -> false
 		| Some s -> let _ = set_state_s s
@@ -138,8 +175,8 @@ let rec search_aux move state_set acc =
 				| Some new_states -> let updated_state = States.remove s state_set in
 						search_aux (move) (new_states) (updated_state :: acc)
 
-let search =
+let search () =
 	let move = XpatSolverValidate.move in 
-	let state_init = XpatSolverValidate.get_state () in 
+	let state_init = XpatSolverValidate.get_state () in
 	let state_set = init_set_states (state_init) in 
 		search_aux move (state_set) ([])
