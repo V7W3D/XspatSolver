@@ -58,7 +58,7 @@ let copy_state state =
 								(fun i -> try FArray.get state.deposit i with Not_found -> 0);
 		registers = FArray.init (FArray.length state.registers)
 								(fun i -> try FArray.get state.registers i with Not_found -> None);
-		rank = state.rank;
+		movelist = state.movelist;
 	}
 	in state';;
 
@@ -93,6 +93,9 @@ let contains_big_seq state =
 let check_gap state1 state2 =
 	(score state1 - score state2) <= ecart
 
+let add_move state s d = 
+	state.movelist <- state.movelist @ [(s^" "^d)];;
+
 let move_id_to_id id move state treated_states = 
 	let rec move_id_to_id_aux s d move state treated_states =
 		if (d < 52) then 
@@ -105,6 +108,7 @@ let move_id_to_id id move state treated_states =
 					if (not (contains_big_seq state')
 							&& not (States.mem state' treated_states)
 								&& check_gap state state') then
+						let _ = add_move state' (string_of_int (id)) (string_of_int (d)) in
 						States.add state' (move_id_to_id_aux s (d+1) move state treated_states)
 					else move_id_to_id_aux s (d+1) move state treated_states
 				with Move_error -> 
@@ -125,6 +129,7 @@ let move_id_to_col id move state treated_states =
 						if (not (contains_big_seq state')
 								&& not (States.mem state' treated_states)
 							      && check_gap state state') then
+							let _ = add_move state' (string_of_int (id)) "V" in
 							States.singleton state'
 						else States.empty
 					else States.empty
@@ -141,6 +146,7 @@ let move_id_to_reg id move state treated_states=
 		if (not (contains_big_seq state') &&
 				not (States.mem state' treated_states)
 					&& check_gap state state') then
+			let _ = add_move state' (string_of_int (id)) "T" in
 			States.singleton state'
 		else
 			States.empty
@@ -172,22 +178,25 @@ let max state_set =
 		| Some e ->States.find_first_opt 
 		(fun x -> (score x = score e) ) state_set  
 
-let rec search_aux move state_set treated_states = 
+let write_file filename = 
+	()
+
+let rec search_aux move state_set treated_states filename = 
 	Printf.printf "current states : %d"(States.cardinal state_set);
 	match max state_set with
-		| None -> false
+		| None -> Printf.printf "INSOLUBLE"; exit 2
 		| Some s ->
 			Printf.printf ";best score : %d\n"(score s);
 			match is_winnig s with
-			| true -> true
+			| true -> Printf.printf "SUCCES";write_file (filename);exit 0 
 			| false -> 
 				let updated_state = States.remove s state_set in
 				let new_treated = States.add s treated_states in
 				let valide_move = valide_moves move s new_treated in
 				let new_state = States.union valide_move updated_state in
-					search_aux (move) (new_state) (new_treated)
+					search_aux (move) (new_state) (new_treated) (filename)
 
-let search conf state_init =
+let search filename state_init =
 	let move = XpatSolverValidate.move in 
 	let state_set = init_set_states (state_init) in 
-		search_aux (move) (state_set) (States.empty)
+		search_aux (move) (state_set) (States.empty) (filename)

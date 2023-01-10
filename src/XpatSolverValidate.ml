@@ -13,7 +13,7 @@ type state = {
   mutable columns : Card.card list FArray.t;
   mutable deposit : int FArray.t; 
   mutable registers : Card.card option FArray.t;
-  mutable rank : int;
+  mutable movelist : string list;
 }
 
 type destination = T | V | Id of int 
@@ -42,7 +42,7 @@ let set_game_seed name =
                       "FreeCell Seahaven MidnightOil BakersDozen")
 
 let set_state game = 
-  let state = {columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None; rank = 0} 
+  let state = {columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None; movelist = []} 
     in match game with
     | Seahaven -> state.columns <- FArray.make 10 [];state
     | Midnight -> state.columns <- FArray.make 18 [];state
@@ -353,6 +353,6 @@ let validate_file f state =
     | exception End_of_file -> (match validate_deposit state with
       | false -> (Printf.printf "ECHEC %d\n" n; exit 1)
       | true -> Printf.printf "SUCCES\n"))
-  in validate_file_aux (f) (1) state
+  in validate_file_aux (f) (1) state; exit 0
 
 let get_config () = config

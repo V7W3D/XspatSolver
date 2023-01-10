@@ -13,7 +13,7 @@ type state = {
   mutable columns : Card.card list FArray.t;
   mutable deposit : int FArray.t; 
   mutable registers : Card.card option FArray.t;
-  mutable rank : int;
+  mutable movelist : string list;
 }
 
 type destination = T | V | Id of int 
