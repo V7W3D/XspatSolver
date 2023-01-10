@@ -1,0 +1,23 @@
+1)-
+	SIDI AHMED  Ahmed       22118210    @sidiahme
+	SALHI       Younes      22119174    @salhiy
+
+2)- 
+	
+3)- 
+	Le projet compile via la commande dune (dune build src/XpatSolver.exe)
+	ensuite pour les arguments, on aura l'option -check suivi d'un nom de 
+	fichier , et l'option -search avec aussi un
+	nom de fichier, et finalement il faudra definir l'etat initial du jeu
+	vie une graine et le choix du type de jeu : fc,mo,st,bd suivi d'un point 
+	et de la graine
+
+4)- 
+	Le projet est decoupé en plusieurs modules, premierment on a le module Card.ml pour les carte, le module FArray.ml pour les tableau fonctionnels
+	, Fifo.ml pour implementer les file, PArray pour l'impletation des tableau 
+	classique, ensuite il y'a le module XpatRandom.ml qui contient la fonction shuffle qui permet de generer la permutation initiale via la graine,
+	ensuite il y'a le module XpatSolver.ml ou se trouve le main du projet
+	et ou les premieres initialisations sont faites tel que la permutation, la generation du premier etat..., ensuite il y'a les deux modules XpatSolverValidate et XpatSolverSearch le premier comme son nom l'indique permet de rechercher une solution d'une certaine configuration, et le 
+	deuxieme permet de valider les fichier donner par l'utilisateur.
+5)- 
+	Pour l'organisation du travail, les taches ont été diviser equitablement en deux, SIDIAHMED AHMED a fait la plus grande partie du jalon 1 et une partie du jalon 2, YOUNES SALHI a fait une partie du jalon 1 et la plus grande partie du jalon 2, la premier partie du projet a ete faite en decembre et la deuxieme partie une partie durant la fin decembre et l'autre durant le mois de janvier

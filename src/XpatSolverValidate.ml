@@ -13,20 +13,13 @@ type state = {
   mutable columns : Card.card list FArray.t;
   mutable deposit : int FArray.t; 
   mutable registers : Card.card option FArray.t;
+  mutable rank : int;
 }
 
 type destination = T | V | Id of int 
 
 
 let config = { game = Baker; seed = 1; mode = Search "" }
-let state = { columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None }
-
-
-let set_state_s s = begin
-    state.columns <- s.columns;
-    state.registers <- s.registers;
-    state.deposit <- s.deposit
-  end
 
 let getgame = function
   | "FreeCell"|"fc" -> Freecell
@@ -48,28 +41,13 @@ let set_game_seed name =
   with _ -> failwith ("Error: <game>.<number> expected, with <game> in "^
                       "FreeCell Seahaven MidnightOil BakersDozen")
 
-let set_state = function
-  | Seahaven -> state.columns <- FArray.make 10 []
-  | Midnight -> state.columns <- FArray.make 18 []
-  | Baker -> state.columns <- FArray.make 13 []
-  | _ -> ()
-
-let rec print_columns index = match FArray.get (state.columns) (index) with
-  | exception Not_found -> ()
-  | c -> begin 
-    List.iter (fun n -> Printf.printf "%s " (Card.to_string n)) c; 
-    print_newline ();
-    print_columns (index + 1)
-end
-
-let rec print_registers index = match FArray.get (state.registers) (index) with
-  | exception Not_found -> ()
-  | None -> Printf.printf "N "; print_registers (index + 1)
-  | Some c -> Printf.printf "%s " (Card.to_string c); print_registers (index + 1)
-
-let rec print_deposit index = match FArray.get (state.deposit) (index) with
-  | exception Not_found -> ()
-  | c -> Printf.printf "%d " c; print_deposit (index + 1)
+let set_state game = 
+  let state = {columns = FArray.make 8 []; deposit = FArray.make 4 0; registers = FArray.make 4 None; rank = 0} 
+    in match game with
+    | Seahaven -> state.columns <- FArray.make 10 [];state
+    | Midnight -> state.columns <- FArray.make 18 [];state
+    | Baker -> state.columns <- FArray.make 13 [];state
+    | _ -> state
 
 let split_permut_fc permut = 
   let rec split_permut_fc_aux permut accll accl cpt altern = 
@@ -84,18 +62,18 @@ let split_permut_fc permut =
         else split_permut_fc_aux (l) (accl::accll) ((Card.of_num x)::[]) (1) (not altern)
   in split_permut_fc_aux (permut) ([]) ([]) (0) (true)
 
-let split_permut_st permut = 
-  let rec split_permut_st_aux permut accll accl cpt = 
+let split_permut_st permut state = 
+  let rec split_permut_st_aux permut accll accl cpt state = 
     match permut with
     | [] -> accl::accll
     | [c1;c2] -> begin
       state.registers <- FArray.set (state.registers) (0) (Some (Card.of_num c1));
       state.registers <- FArray.set (state.registers) (1) (Some (Card.of_num c2));
-      split_permut_st_aux [] accll accl cpt
+      split_permut_st_aux [] accll accl cpt state
     end
-    | x::l -> if cpt < 5 then split_permut_st_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1)
-    else split_permut_st_aux (x::l) (accl::accll) ([]) (0)
-  in split_permut_st_aux (permut) ([]) ([]) (0)
+    | x::l -> if cpt < 5 then split_permut_st_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1) state
+    else split_permut_st_aux (x::l) (accl::accll) ([]) (0) state
+  in split_permut_st_aux (permut) ([]) ([]) (0) state
 
 let split_permut_mo permut = 
   let rec split_permut_mo_aux permut accll accl cpt = 
@@ -114,22 +92,22 @@ let split_permut_bk permut =
       | (_, _) -> if cpt < 4 then split_permut_bk_aux (l) (accll) ((Card.of_num x)::accl) (cpt+1) else split_permut_bk_aux (l) (accl::accll) ((Card.of_num x)::[]) (1)
   in split_permut_bk_aux (permut) ([]) ([]) (0)
 
-let init_columns splited_permut = 
-  let rec init_columns_aux splited_permut cpt = match splited_permut with
+let init_columns splited_permut state= 
+  let rec init_columns_aux splited_permut cpt state= match splited_permut with
     | [] -> ()
     | x :: l -> begin
       state.columns <- FArray.set (state.columns) (cpt) (x);
-      init_columns_aux (l) (cpt+1)
+      init_columns_aux (l) (cpt+1) state
       end
-  in init_columns_aux (splited_permut) (0)
+  in init_columns_aux (splited_permut) (0) state
 
-let split_permut permut = match config.game with
+let split_permut permut state = match config.game with
   | Freecell -> split_permut_fc permut
-  | Seahaven -> split_permut_st permut
+  | Seahaven -> split_permut_st permut state
   | Midnight -> split_permut_mo permut
   | Baker -> split_permut_bk permut
 
-let rec put_in_deposit_col column index check = match column with 
+let rec put_in_deposit_col column index check state = match column with 
   | [] -> check
   | x::l -> match x with
     | (rank, suit) -> begin
@@ -137,43 +115,43 @@ let rec put_in_deposit_col column index check = match column with
         begin
           state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank);
           state.columns <- FArray.set (state.columns) (index) (l);
-          put_in_deposit_col (l) (index) (true)
+          put_in_deposit_col (l) (index) (true) state
         end
       else check
     end
 
-let rec normalize_reg index check = match FArray.get (state.registers) (index) with
+let rec normalize_reg index check state = match FArray.get (state.registers) (index) with
   | exception Not_found -> check
   | Some c -> (match c with (rank, suit) -> 
     if (rank = (FArray.get (state.deposit) (Card.num_of_suit suit)) + 1) then
       begin
         state.deposit <- FArray.set (state.deposit) (Card.num_of_suit suit) (rank);
         state.registers <- FArray.set (state.registers) (index) (None);
-        normalize_reg (index + 1) (true)
+        normalize_reg (index + 1) (true) state
       end
-    else normalize_reg (index + 1) (check))
-  | None -> normalize_reg (index + 1) (check)
+    else normalize_reg (index + 1) (check) state)
+  | None -> normalize_reg (index + 1) (check) state
 
-let rec normalize_col index check = match FArray.get (state.columns) (index) with
+let rec normalize_col index check state = match FArray.get (state.columns) (index) with
   | exception Not_found -> check
-  | c -> let check_updated = put_in_deposit_col (c) (index) (check) in normalize_col (index + 1) (check_updated)
+  | c -> let check_updated = put_in_deposit_col (c) (index) (check) state in normalize_col (index + 1) (check_updated) state
 
-let rec normalize () = let check1 = normalize_col (0) (false) in let check2 = normalize_reg (0) (false) in if (check1 || check2) then normalize ()
+let rec normalize state = let check1 = normalize_col (0) (false) state in let check2 = normalize_reg (0) (false) state in if (check1 || check2) then normalize state
 
-let get_src_col_ind s = 
+let get_src_col_ind s state = 
   let rec get_src_col_ind_aux s index = match FArray.get (state.columns) (index) with
     | [] -> get_src_col_ind_aux (s) (index + 1) 
     | c -> match List.hd c with
       | x -> if (Card.to_num x) = s then index else get_src_col_ind_aux (s) (index + 1) 
   in get_src_col_ind_aux s (0)
 
-let get_src_reg_ind s = 
+let get_src_reg_ind s state = 
   let rec get_src_reg_ind_aux s index = match FArray.get (state.registers) (index) with
   | None -> get_src_reg_ind_aux (s) (index + 1) 
   | Some c -> if (Card.to_num c) = s then index else get_src_reg_ind_aux (s) (index + 1) 
 in get_src_reg_ind_aux s (0)
 
-let get_dst_ind d =
+let get_dst_ind d state =
   let rec get_dst_ind_aux d index = match FArray.get (state.columns) (index) with
     | [] -> get_dst_ind_aux (d) (index + 1)
     | c -> match List.hd c with
@@ -184,23 +162,23 @@ let altern_color c1 c2 = match c1 with (_, x) -> match c2 with (_, y) -> ((Card.
 
 let inferior_rank c1 c2 = match c1 with (x, _) -> match c2 with (y, _) -> y = (x + 1)
 
-let first_empty_register () =
+let first_empty_register state =
   let rec first_empty_register_aux index = match FArray.get (state.registers) (index) with
     | Some x -> first_empty_register_aux (index + 1)
     | None -> index
   in first_empty_register_aux (0)
 
-let first_empty_column () = 
+let first_empty_column state = 
   let rec first_empty_column_aux index = match FArray.get (state.columns) (index) with
     | [] -> index
     |  l -> first_empty_column_aux (index + 1)
   in first_empty_column_aux (0)
 
-let move_fc s d = match d with
-  | Id x -> (match get_src_col_ind s with
-    | exception Not_found -> (match get_src_reg_ind s with
+let move_fc s d state = match d with
+  | Id x -> (match get_src_col_ind s state with
+    | exception Not_found -> (match get_src_reg_ind s state with
       | exception Not_found -> raise Move_error
-      | i -> match get_dst_ind x with
+      | i -> match get_dst_ind x state with
         | exception Not_found -> raise Move_error
         | j -> (match FArray.get (state.registers) (i) with
           | Some c1 -> (match FArray.get (state.columns) (j) with
@@ -213,7 +191,7 @@ let move_fc s d = match d with
               else raise Move_error
             | _ -> ())
           |_ -> ()))
-    | i -> match get_dst_ind x with
+    | i -> match get_dst_ind x state with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
         | c1 :: l1 -> (match FArray.get (state.columns) (j) with
@@ -226,20 +204,20 @@ let move_fc s d = match d with
             else raise Move_error
           | _ -> ())
         |_ -> ()))
-  | T -> (match get_src_col_ind s with
+  | T -> (match get_src_col_ind s state with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
-      | c :: l1 -> (match first_empty_register () with
+      | c :: l1 -> (match first_empty_register state with
         | exception Not_found -> raise Move_error
         | x -> begin 
           state.registers <- FArray.set (state.registers) (x) (Some c);
           state.columns <- FArray.set (state.columns) (i) (l1)
         end)
       | _ -> ())
-  | V -> (match get_src_col_ind s with
+  | V -> (match get_src_col_ind s state with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
-      | c :: l1 -> (match first_empty_column () with
+      | c :: l1 -> (match first_empty_column state with
         | exception Not_found -> raise Move_error
         | x -> begin 
           state.columns <- FArray.set (state.columns) (x) ([c]);
@@ -249,11 +227,11 @@ let move_fc s d = match d with
 
 let same_suit c1 c2 =  match c1 with (_, x) -> match c2 with (_, y) -> (Card.num_of_suit x) = (Card.num_of_suit y)
 
-let move_st s d = match d with
-  | Id x -> (match get_src_col_ind s with
-    | exception Not_found -> (match get_src_reg_ind s with
+let move_st s d state = match d with
+  | Id x -> (match get_src_col_ind s state with
+    | exception Not_found -> (match get_src_reg_ind s state with
       | exception Not_found -> raise Move_error
-      | i -> match get_dst_ind x with
+      | i -> match get_dst_ind x state with
         | exception Not_found -> raise Move_error
         | j -> (match FArray.get (state.registers) (i) with
           | Some c1 -> (match FArray.get (state.columns) (j) with
@@ -266,7 +244,7 @@ let move_st s d = match d with
               else raise Move_error
             | _ -> ())
           |_ -> ()))
-    | i -> match get_dst_ind x with
+    | i -> match get_dst_ind x state with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
         | c1 :: l1 -> (match FArray.get (state.columns) (j) with
@@ -279,22 +257,22 @@ let move_st s d = match d with
             else raise Move_error
           | _ -> ())
         |_ -> ()))
-  | T -> (match get_src_col_ind s with
+  | T -> (match get_src_col_ind s state with
     | exception Not_found -> raise Move_error
     | i -> match FArray.get (state.columns) (i) with
-      | c :: l1 -> (match first_empty_register () with
+      | c :: l1 -> (match first_empty_register state with
         | exception Not_found -> raise Move_error
         | x -> begin 
           state.registers <- FArray.set (state.registers) (x) (Some c);
           state.columns <- FArray.set (state.columns) (i) (l1)
           end)
       | _ -> ())
-  | V -> (match get_src_col_ind s with
-    | exception Not_found -> (match get_src_reg_ind s with
+  | V -> (match get_src_col_ind s state with
+    | exception Not_found -> (match get_src_reg_ind s state with
       | exception Not_found -> raise Move_error
       | i -> (match FArray.get (state.registers) (i) with
         | Some c -> (match c with (x, _) -> if x = 13 then 
-          (match first_empty_column () with
+          (match first_empty_column state with
           | exception Not_found -> raise Move_error
           | j -> begin
             state.registers <- FArray.set (state.registers) (i) (None);
@@ -304,7 +282,7 @@ let move_st s d = match d with
         | _ -> ()))
     | i -> (match FArray.get (state.columns) (i) with
       | c :: l1 -> (match c with (x, _) -> if x = 13 then 
-        (match first_empty_column () with
+        (match first_empty_column state with
         | exception Not_found -> raise Move_error
         | j -> begin 
           state.columns <- FArray.set (state.columns) (j) ([c]);
@@ -313,10 +291,10 @@ let move_st s d = match d with
         else raise Move_error)
       | _ -> ()))
 
-let move_mo s d = match d with
-  | Id x -> (match get_src_col_ind s with
+let move_mo s d state = match d with
+  | Id x -> (match get_src_col_ind s state with
     | exception Not_found -> raise Move_error
-    | i -> match get_dst_ind x with
+    | i -> match get_dst_ind x state with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
         | c1 :: l1 -> (match FArray.get (state.columns) (j) with
@@ -332,10 +310,10 @@ let move_mo s d = match d with
   | T -> ()
   | V -> ()
 
-let move_bk s d = match d with
-  | Id x -> (match get_src_col_ind s with
+let move_bk s d state = match d with
+  | Id x -> (match get_src_col_ind s state with
     | exception Not_found -> raise Move_error
-    | i -> match get_dst_ind x with
+    | i -> match get_dst_ind x state with
       | exception Not_found -> raise Move_error
       | j -> (match FArray.get (state.columns) (i) with
         | c1 :: l1 -> (match FArray.get (state.columns) (j) with
@@ -351,33 +329,30 @@ let move_bk s d = match d with
   | T -> ()
   | V -> ()
 
-let move s d = match config.game with
-| Freecell -> move_fc s d
-| Seahaven -> move_st s d
-| Midnight -> move_mo s d
-| Baker -> move_bk s d
+let move s d state = match config.game with
+| Freecell -> move_fc s d state
+| Seahaven -> move_st s d state
+| Midnight -> move_mo s d state
+| Baker -> move_bk s d state
 
-let validate_deposit () = 
-  let rec validate_deposit_aux index = match FArray.get (state.deposit) (index) with
+let validate_deposit state = 
+  let rec validate_deposit_aux index state = match FArray.get (state.deposit) (index) with
   | exception Not_found -> true
-  | c -> if c = 13 then validate_deposit_aux (index + 1) else false
-  in validate_deposit_aux (0)
+  | c -> if c = 13 then validate_deposit_aux (index + 1) state else false
+  in validate_deposit_aux (0) state
 
 
-let validate_file f = 
-  let rec validate_file_aux f n = (match input_line f with
+let validate_file f state = 
+  let rec validate_file_aux f n state = (match input_line f with
     | line -> let l = String.split_on_char (' ') (line) in (match l with
       | [i; j] -> (match j with
-        | "T" -> (try move (int_of_string i) (T); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1) 
-        | "V" -> (try move (int_of_string i) (V); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1)
-        | _ -> (try move (int_of_string i) (Id (int_of_string j)); normalize (); validate_file_aux (f) (n+1) with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1))
+        | "T" -> (try move (int_of_string i) (T) state; normalize state; validate_file_aux (f) (n+1) state with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1) 
+        | "V" -> (try move (int_of_string i) (V) state; normalize state; validate_file_aux (f) (n+1) state with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1)
+        | _ -> (try move (int_of_string i) (Id (int_of_string j)) state; normalize state; validate_file_aux (f) (n+1) state with Move_error -> Printf.printf "ECHEC %d\n" n; exit 1))
       | _ -> raise Invalid_format)
-    | exception End_of_file -> (match validate_deposit () with
+    | exception End_of_file -> (match validate_deposit state with
       | false -> (Printf.printf "ECHEC %d\n" n; exit 1)
       | true -> Printf.printf "SUCCES\n"))
-  in validate_file_aux (f) (1)
-
-
-let get_state () = state
+  in validate_file_aux (f) (1) state
 
 let get_config () = config

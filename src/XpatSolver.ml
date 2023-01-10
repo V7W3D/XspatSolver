@@ -2,13 +2,14 @@ open XpatLib
 
 let treat_game (conf:XpatSolverValidate.config) : unit =
   let permut = XpatRandom.shuffle conf.seed in
-  XpatSolverValidate.set_state conf.game;
-  let res = XpatSolverValidate.split_permut permut 
-      in XpatSolverValidate.init_columns res;
-  XpatSolverValidate.normalize ();
-  match conf.mode with
-    | Check filename -> XpatSolverValidate.validate_file (open_in filename)
-    | Search filename -> if (XpatSolverSearch.search ()) then () else ();
+  let state = XpatSolverValidate.set_state conf.game in
+  let res = XpatSolverValidate.split_permut permut state
+      in XpatSolverValidate.init_columns res state;
+  XpatSolverValidate.normalize state;
+    match conf.mode with
+      | Check filename -> XpatSolverValidate.validate_file (open_in filename) (state)
+      | Search filename -> if (XpatSolverSearch.search conf.game state) 
+          then Printf.printf "true" else Printf.printf "false";
   exit 0
 
 let main () =
