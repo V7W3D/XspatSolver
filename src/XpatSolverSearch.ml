@@ -94,7 +94,7 @@ let check_gap state1 state2 =
 	(score state1 - score state2) <= ecart
 
 let add_move state s d = 
-	state.movelist <- state.movelist @ [(s^" "^d)];;
+	state.movelist <- state.movelist @ [(s^" "^d^"\n")];;
 
 let move_id_to_id id move state treated_states = 
 	let rec move_id_to_id_aux s d move state treated_states =
@@ -178,17 +178,23 @@ let max state_set =
 		| Some e ->States.find_first_opt 
 		(fun x -> (score x = score e) ) state_set  
 
-let write_file filename = 
-	()
+let rec write_lines co l = 
+	match l with
+		| [] -> ()
+		| b::bs -> output_string co b;write_lines co bs;;
+
+let write_file filename l= 
+	let co = open_out filename in
+		write_lines co l;;
 
 let rec search_aux move state_set treated_states filename = 
-	Printf.printf "current states : %d"(States.cardinal state_set);
+	Printf.printf "current number of states : %d\n"(States.cardinal state_set);
 	match max state_set with
 		| None -> Printf.printf "INSOLUBLE"; exit 2
 		| Some s ->
 			Printf.printf ";best score : %d\n"(score s);
 			match is_winnig s with
-			| true -> Printf.printf "SUCCES";write_file (filename);exit 0 
+			| true -> Printf.printf "SUCCES";write_file (filename) (s.movelist);exit 0 
 			| false -> 
 				let updated_state = States.remove s state_set in
 				let new_treated = States.add s treated_states in
