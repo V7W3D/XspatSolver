@@ -1,9 +1,9 @@
 Certaines configurations initiales sont plutôt faciles à résoudre :
 
-  $ timeout 120 ../../src/XpatSolver.exe bd.2 -search out.sol | tail -n 1
+  $ timeout 120 ../../src/XpatSolver.exe bd.12 -search out.sol | tail -n 1
   SUCCES
 
-  $ ../../src/XpatSolver.exe bd.2 -check out.sol | tail -n 1
+  $ ../../src/XpatSolver.exe bd.12 -check out.sol | tail -n 1
   SUCCES
 
   $ timeout 120 ../../src/XpatSolver.exe fc.4 -search out.sol | tail -n 1

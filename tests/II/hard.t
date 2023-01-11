@@ -1,11 +1,11 @@
 Certaines configurations initiales sont plus difficiles à résoudre :
 (supprimez le dièse initial '#' pour les essayer!)
 
-#  $ ../../src/XpatSolver.exe fc.1 -search out.sol | tail -n 1
-#  SUCCES
+  $ ../../src/XpatSolver.exe fc.1 -search out.sol | tail -n 1
+  SUCCES
 #
-#  $ ../../src/XpatSolver.exe fc.1 -check out.sol | tail -n 1
-#  SUCCES
+  $ ../../src/XpatSolver.exe fc.1 -check out.sol | tail -n 1
+  SUCCES
 #
 #  $ ../../src/XpatSolver.exe bd.6 -search out.sol | tail -n 1
 #  SUCCES
@@ -13,17 +13,11 @@ Certaines configurations initiales sont plus difficiles à résoudre :
 #  $ ../../src/XpatSolver.exe bd.6 -check out.sol | tail -n 1
 #  SUCCES
 #
-#  $ ../../src/XpatSolver.exe fc.14 -search out.sol | tail -n 1
-#  SUCCES
+  $ ../../src/XpatSolver.exe fc.14 -search out.sol | tail -n 1
+  SUCCES
 #
-#  $ ../../src/XpatSolver.exe fc.14 -check out.sol | tail -n 1
-#  SUCCES
-#
-#  $ ../../src/XpatSolver.exe bd.12 -search out.sol | tail -n 1
-#  SUCCES
-#
-#  $ ../../src/XpatSolver.exe bd.12 -check out.sol | tail -n 1
-#  SUCCES
+  $ ../../src/XpatSolver.exe fc.14 -check out.sol | tail -n 1
+  SUCCES
 
 D'autres exemples de parties gagnables :
 

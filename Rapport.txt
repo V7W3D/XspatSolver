@@ -3,6 +3,8 @@
 	SALHI       Younes      22119174    @salhiy
 
 2)- 
+	Les fonctionnalités minimales ont été implementer, la recherche et la verficiation d'un
+	fichier solution
 	
 3)- 
 	Le projet compile via la commande dune (dune build src/XpatSolver.exe)
@@ -19,5 +21,7 @@
 	ensuite il y'a le module XpatSolver.ml ou se trouve le main du projet
 	et ou les premieres initialisations sont faites tel que la permutation, la generation du premier etat..., ensuite il y'a les deux modules XpatSolverValidate et XpatSolverSearch le premier comme son nom l'indique permet de rechercher une solution d'une certaine configuration, et le 
 	deuxieme permet de valider les fichier donner par l'utilisateur.
+	Les etats restants dans la recherche ont été implémentés via un type Set Farray ou pour chaque score on a un case du tableau
+	et dans chaque case i il y'a un set qui contient tous les etats de score i.
 5)- 
 	Pour l'organisation du travail, les taches ont été diviser equitablement en deux, SIDIAHMED AHMED a fait la plus grande partie du jalon 1 et une partie du jalon 2, YOUNES SALHI a fait une partie du jalon 1 et la plus grande partie du jalon 2, la premier partie du projet a ete faite en decembre et la deuxieme partie une partie durant la fin decembre et l'autre durant le mois de janvier

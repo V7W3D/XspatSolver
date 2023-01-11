@@ -8,7 +8,7 @@ let treat_game (conf:XpatSolverValidate.config) : unit =
   XpatSolverValidate.normalize state;
     match conf.mode with
       | Check filename -> XpatSolverValidate.validate_file (open_in filename) (state)
-      | Search filename -> XpatSolverSearch.search filename state
+      | Search filename -> XpatSolverSearch.search (filename) (state) (conf.game)
 
 let main () =
   let config = XpatSolverValidate.get_config () in
